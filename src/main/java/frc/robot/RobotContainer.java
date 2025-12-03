@@ -4,6 +4,7 @@
 
 package frc.robot;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.wpilibj.XboxController;
 import frc.robot.Constants.OIConstants;
 import frc.robot.subsystems.DriveSubsystem;
@@ -21,12 +22,8 @@ public class RobotContainer {
   // The robot's subsystems
   private final DriveSubsystem m_robotDrive = new DriveSubsystem();
 
-  // Retained command references
-  private final Command m_driveFullSpeed = Commands.runOnce(() -> m_robotDrive.setMaxOutput(1));
-  private final Command m_driveHalfSpeed = Commands.runOnce(() -> m_robotDrive.setMaxOutput(0.5));
-
   // The driver's controller
-  CommandXboxController m_driverController =
+  private final CommandXboxController m_driverController =
       new CommandXboxController(OIConstants.kDriverControllerPort);
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
@@ -35,14 +32,17 @@ public class RobotContainer {
     configureButtonBindings();
 
     // Configure default commands
-    // Set the default drive command to split-stick arcade drive
+    // Set the default drive command to curvature drive
     m_robotDrive.setDefaultCommand(
-        // A split-stick arcade command, with forward/backward controlled by the left
-        // hand, and turning controlled by the right.
+        // Curvature drive with forward/backward controlled by the left Y,
+        // and turning controlled by the right X.
+        // Right bumper is used for "quick turn" (turning in place).
         Commands.run(
             () ->
-                m_robotDrive.arcadeDrive(
-                    -m_driverController.getLeftY(), -m_driverController.getRightX()),
+                m_robotDrive.curvatureDrive(
+                    -MathUtil.applyDeadband(m_driverController.getLeftY(), OIConstants.kDriveDeadband),
+                    -MathUtil.applyDeadband(m_driverController.getRightX(), OIConstants.kDriveDeadband),
+                    m_driverController.rightBumper().getAsBoolean()),
             m_robotDrive));
   }
 
@@ -53,8 +53,12 @@ public class RobotContainer {
    * edu.wpi.first.wpilibj2.command.button.JoystickButton}.
    */
   private void configureButtonBindings() {
-    // Drive at half speed when the bumper is held
-    m_driverController.rightBumper().onTrue(m_driveHalfSpeed).onFalse(m_driveFullSpeed);
+    // Drive at half speed when the left bumper is held
+    m_driverController
+        .leftBumper()
+        .whileTrue(
+            Commands.startEnd(
+                () -> m_robotDrive.setMaxOutput(0.5), () -> m_robotDrive.setMaxOutput(1)));
 
     // Drive forward by 3 meters when the 'A' button is pressed, with a timeout of 10 seconds
     m_driverController.a().onTrue(m_robotDrive.profiledDriveDistance(3).withTimeout(10));

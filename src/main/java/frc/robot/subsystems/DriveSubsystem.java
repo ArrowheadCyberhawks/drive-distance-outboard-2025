@@ -4,6 +4,14 @@
 
 package frc.robot.subsystems;
 
+import com.ctre.phoenix.motorcontrol.ControlMode;
+import com.ctre.phoenix.motorcontrol.DemandType;
+import com.ctre.phoenix.motorcontrol.FeedbackDevice;
+import com.ctre.phoenix.motorcontrol.InvertType;
+import com.ctre.phoenix.motorcontrol.NeutralMode;
+import com.ctre.phoenix.motorcontrol.SupplyCurrentLimitConfiguration;
+import com.ctre.phoenix.motorcontrol.can.TalonSRXConfiguration;
+import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.math.trajectory.TrapezoidProfile.State;
@@ -12,24 +20,29 @@ import edu.wpi.first.wpilibj.RobotController;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import frc.robot.Constants.DriveConstants;
-import frc.robot.ExampleSmartMotorController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 public class DriveSubsystem extends SubsystemBase {
   // The motors on the left side of the drive.
-  private final ExampleSmartMotorController m_leftLeader =
-      new ExampleSmartMotorController(DriveConstants.kLeftMotor1Port);
+  private final WPI_TalonSRX m_leftLeader =
+      new WPI_TalonSRX(DriveConstants.kLeftMotor1Port);
 
-  private final ExampleSmartMotorController m_leftFollower =
-      new ExampleSmartMotorController(DriveConstants.kLeftMotor2Port);
+  private final WPI_TalonSRX m_leftFollower1 =
+      new WPI_TalonSRX(DriveConstants.kLeftMotor2Port);
+
+  private final WPI_TalonSRX m_leftFollower2 =
+      new WPI_TalonSRX(DriveConstants.kLeftMotor3Port);
 
   // The motors on the right side of the drive.
-  private final ExampleSmartMotorController m_rightLeader =
-      new ExampleSmartMotorController(DriveConstants.kRightMotor1Port);
+  private final WPI_TalonSRX m_rightLeader =
+      new WPI_TalonSRX(DriveConstants.kRightMotor1Port);
 
-  private final ExampleSmartMotorController m_rightFollower =
-      new ExampleSmartMotorController(DriveConstants.kRightMotor2Port);
+  private final WPI_TalonSRX m_rightFollower1 =
+      new WPI_TalonSRX(DriveConstants.kRightMotor2Port);
+
+  private final WPI_TalonSRX m_rightFollower2 =
+      new WPI_TalonSRX(DriveConstants.kRightMotor3Port);
 
   // The feedforward controller.
   private final SimpleMotorFeedforward m_feedforward =
@@ -57,16 +70,43 @@ public class DriveSubsystem extends SubsystemBase {
     SendableRegistry.addChild(m_drive, m_leftLeader);
     SendableRegistry.addChild(m_drive, m_rightLeader);
 
-    // We need to invert one side of the drivetrain so that positive voltages
-    // result in both sides moving forward. Depending on how your robot's
-    // gearbox is constructed, you might have to invert the left side instead.
-    m_rightLeader.setInverted(true);
+    // Create a configuration object for the leaders
+    TalonSRXConfiguration leaderConfig = new TalonSRXConfiguration();
 
-    m_leftFollower.follow(m_leftLeader);
-    m_rightFollower.follow(m_rightLeader);
+    // Common Config
+    leaderConfig.slot0.kP = DriveConstants.kp;
+    leaderConfig.primaryPID.selectedFeedbackSensor = FeedbackDevice.CTRE_MagEncoder_Relative;
+    leaderConfig.voltageCompSaturation = DriveConstants.kVoltageComp;
+    
+    // 2. Cook the Leaders
+    configureLeader(m_leftLeader, leaderConfig, false);
+    configureLeader(m_rightLeader, leaderConfig, true);
 
-    m_leftLeader.setPID(DriveConstants.kp, 0, 0);
-    m_rightLeader.setPID(DriveConstants.kp, 0, 0);
+    // Configure Followers
+    configureFollower(m_leftFollower1, m_leftLeader);
+    configureFollower(m_leftFollower2, m_leftLeader);
+    configureFollower(m_rightFollower1, m_rightLeader);
+    configureFollower(m_rightFollower2, m_rightLeader);
+  }
+
+  private void configureLeader(WPI_TalonSRX leader, TalonSRXConfiguration config, boolean inverted) {
+    leader.configAllSettings(config);
+    leader.setNeutralMode(NeutralMode.Brake);
+    leader.enableVoltageCompensation(true);
+    leader.setInverted(inverted);
+    
+    // Current Limiting (Prevent Brownouts)
+    // 40A continuous, 60A peak for 100ms
+    leader.configSupplyCurrentLimit(new SupplyCurrentLimitConfiguration(true, 40, 60, 0.1));
+  }
+
+  private void configureFollower(WPI_TalonSRX follower, WPI_TalonSRX leader) {
+    follower.configFactoryDefault();
+    follower.follow(leader);
+    follower.setInverted(InvertType.FollowMaster);
+    follower.setNeutralMode(NeutralMode.Brake);
+    follower.configVoltageCompSaturation(DriveConstants.kVoltageComp);
+    follower.enableVoltageCompensation(true);
   }
 
   /**
@@ -77,6 +117,27 @@ public class DriveSubsystem extends SubsystemBase {
    */
   public void arcadeDrive(double fwd, double rot) {
     m_drive.arcadeDrive(fwd, rot);
+  }
+
+  /**
+   * Drives the robot using tank controls.
+   *
+   * @param left the commanded left side movement
+   * @param right the commanded right side movement
+   */
+  public void tankDrive(double left, double right) {
+    m_drive.tankDrive(left, right);
+  }
+
+  /**
+   * Drives the robot using curvature controls.
+   *
+   * @param fwd the commanded forward movement
+   * @param rot the commanded rotation
+   * @param allowTurnInPlace whether to allow turning in place
+   */
+  public void curvatureDrive(double fwd, double rot, boolean allowTurnInPlace) {
+    m_drive.curvatureDrive(fwd, rot, allowTurnInPlace);
   }
 
   /**
@@ -93,16 +154,18 @@ public class DriveSubsystem extends SubsystemBase {
       TrapezoidProfile.State nextLeft,
       TrapezoidProfile.State nextRight) {
     // Feedforward is divided by battery voltage to normalize it to [-1, 1]
-    m_leftLeader.setSetpoint(
-        ExampleSmartMotorController.PIDMode.kPosition,
-        currentLeft.position,
+    m_leftLeader.set(
+        ControlMode.Position,
+        currentLeft.position / DriveConstants.kEncoderDistancePerPulse,
+        DemandType.ArbitraryFeedForward,
         m_feedforward.calculateWithVelocities(currentLeft.velocity, nextLeft.velocity)
-            / RobotController.getBatteryVoltage());
-    m_rightLeader.setSetpoint(
-        ExampleSmartMotorController.PIDMode.kPosition,
-        currentRight.position,
+            / DriveConstants.kVoltageComp);
+    m_rightLeader.set(
+        ControlMode.Position,
+        currentRight.position / DriveConstants.kEncoderDistancePerPulse,
+        DemandType.ArbitraryFeedForward,
         m_feedforward.calculateWithVelocities(currentLeft.velocity, nextLeft.velocity)
-            / RobotController.getBatteryVoltage());
+            / DriveConstants.kVoltageComp);
   }
 
   /**
@@ -111,7 +174,7 @@ public class DriveSubsystem extends SubsystemBase {
    * @return the left encoder distance
    */
   public double getLeftEncoderDistance() {
-    return m_leftLeader.getEncoderDistance();
+    return m_leftLeader.getSelectedSensorPosition() * DriveConstants.kEncoderDistancePerPulse;
   }
 
   /**
@@ -120,13 +183,13 @@ public class DriveSubsystem extends SubsystemBase {
    * @return the right encoder distance
    */
   public double getRightEncoderDistance() {
-    return m_rightLeader.getEncoderDistance();
+    return m_rightLeader.getSelectedSensorPosition() * DriveConstants.kEncoderDistancePerPulse;
   }
 
   /** Resets the drive encoders. */
   public void resetEncoders() {
-    m_leftLeader.resetEncoder();
-    m_rightLeader.resetEncoder();
+    m_leftLeader.setSelectedSensorPosition(0);
+    m_rightLeader.setSelectedSensorPosition(0);
   }
 
   /**

@@ -15,10 +15,19 @@ package frc.robot;
 public final class Constants {
   public static final class DriveConstants {
     public static final double kDt = 0.02;
-    public static final int kLeftMotor1Port = 0;
-    public static final int kLeftMotor2Port = 1;
-    public static final int kRightMotor1Port = 2;
-    public static final int kRightMotor2Port = 3;
+    public static final int kLeftMotor1Port = 7;
+    public static final int kLeftMotor2Port = 6;
+    public static final int kLeftMotor3Port = 2;
+    public static final int kRightMotor1Port = 9;
+    public static final int kRightMotor2Port = 10;
+    public static final int kRightMotor3Port = 11;
+
+    public static final int kEncoderCPR = 4096;
+    public static final double kWheelDiameterMeters = 0.1524; // 6 inches
+    public static final double kEncoderDistancePerPulse =
+        (kWheelDiameterMeters * Math.PI) / (double) kEncoderCPR;
+
+    public static final double kVoltageComp = 12.0;
 
     // These are example values only - DO NOT USE THESE FOR YOUR OWN ROBOT!
     // These characterization values MUST be determined either experimentally or theoretically
@@ -36,5 +45,6 @@ public final class Constants {
 
   public static final class OIConstants {
     public static final int kDriverControllerPort = 0;
+    public static final double kDriveDeadband = 0.05;
   }
 }

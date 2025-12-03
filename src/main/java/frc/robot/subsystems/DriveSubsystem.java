@@ -1,279 +1,111 @@
-// Copyright (c) FIRST and other WPILib contributors.
-// Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
-
 package frc.robot.subsystems;
 
-import com.ctre.phoenix.motorcontrol.ControlMode;
-import com.ctre.phoenix.motorcontrol.DemandType;
-import com.ctre.phoenix.motorcontrol.FeedbackDevice;
-import com.ctre.phoenix.motorcontrol.InvertType;
-import com.ctre.phoenix.motorcontrol.NeutralMode;
-import com.ctre.phoenix.motorcontrol.SupplyCurrentLimitConfiguration;
+import com.ctre.phoenix.motorcontrol.*;
 import com.ctre.phoenix.motorcontrol.can.TalonSRXConfiguration;
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
-import edu.wpi.first.math.controller.SimpleMotorFeedforward;
-import edu.wpi.first.math.trajectory.TrapezoidProfile;
-import edu.wpi.first.math.trajectory.TrapezoidProfile.State;
 import edu.wpi.first.util.sendable.SendableRegistry;
-import edu.wpi.first.wpilibj.RobotController;
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
-import frc.robot.Constants.DriveConstants;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants.DriveConstants;
+import java.util.List;
 
+/**
+ * Represents the robot's drive base.
+ * This subsystem handles all motor control, safety features, and drive modes.
+ */
 public class DriveSubsystem extends SubsystemBase {
-  // The motors on the left side of the drive.
-  private final WPI_TalonSRX m_leftLeader =
-      new WPI_TalonSRX(DriveConstants.kLeftMotor1Port);
+  // "Leader" motors control the output. The "Followers" just mimic them.
+  private final WPI_TalonSRX m_leftLeader = new WPI_TalonSRX(DriveConstants.kLeftMotor1Port);
+  private final WPI_TalonSRX m_rightLeader = new WPI_TalonSRX(DriveConstants.kRightMotor1Port);
+  
+  // We keep these lists to prevent the Java Garbage Collector (GC) from deleting our follower motors.
+  private final List<WPI_TalonSRX> m_leftFollowers = List.of(
+      new WPI_TalonSRX(DriveConstants.kLeftMotor2Port),
+      new WPI_TalonSRX(DriveConstants.kLeftMotor3Port));
+  private final List<WPI_TalonSRX> m_rightFollowers = List.of(
+      new WPI_TalonSRX(DriveConstants.kRightMotor2Port),
+      new WPI_TalonSRX(DriveConstants.kRightMotor3Port));
 
-  private final WPI_TalonSRX m_leftFollower1 =
-      new WPI_TalonSRX(DriveConstants.kLeftMotor2Port);
+  // WPILib's helper class for driving. It handles the math for arcade/tank/curvature drive.
+  private final DifferentialDrive m_drive = new DifferentialDrive(m_leftLeader::set, m_rightLeader::set);
 
-  private final WPI_TalonSRX m_leftFollower2 =
-      new WPI_TalonSRX(DriveConstants.kLeftMotor3Port);
-
-  // The motors on the right side of the drive.
-  private final WPI_TalonSRX m_rightLeader =
-      new WPI_TalonSRX(DriveConstants.kRightMotor1Port);
-
-  private final WPI_TalonSRX m_rightFollower1 =
-      new WPI_TalonSRX(DriveConstants.kRightMotor2Port);
-
-  private final WPI_TalonSRX m_rightFollower2 =
-      new WPI_TalonSRX(DriveConstants.kRightMotor3Port);
-
-  // The feedforward controller.
-  private final SimpleMotorFeedforward m_feedforward =
-      new SimpleMotorFeedforward(
-          DriveConstants.ksVolts,
-          DriveConstants.kvVoltSecondsPerMeter,
-          DriveConstants.kaVoltSecondsSquaredPerMeter);
-
-  // The robot's drive
-  private final DifferentialDrive m_drive =
-      new DifferentialDrive(m_leftLeader::set, m_rightLeader::set);
-
-  // The trapezoid profile
-  private final TrapezoidProfile m_profile =
-      new TrapezoidProfile(
-          new TrapezoidProfile.Constraints(
-              DriveConstants.kMaxSpeedMetersPerSecond,
-              DriveConstants.kMaxAccelerationMetersPerSecondSquared));
-
-  // The timer
-  private final Timer m_timer = new Timer();
-
-  /** Creates a new DriveSubsystem. */
   public DriveSubsystem() {
+    // Register motors with the dashboard so we can see them
     SendableRegistry.addChild(m_drive, m_leftLeader);
     SendableRegistry.addChild(m_drive, m_rightLeader);
 
-    // Create a configuration object for the leaders
-    TalonSRXConfiguration leaderConfig = new TalonSRXConfiguration();
-
-    // Common Config
-    leaderConfig.slot0.kP = DriveConstants.kp;
-    leaderConfig.primaryPID.selectedFeedbackSensor = FeedbackDevice.CTRE_MagEncoder_Relative;
-    leaderConfig.voltageCompSaturation = DriveConstants.kVoltageComp;
+    // --- Motor Configuration ---
+    // We create one config object and apply it to all motors to ensure consistency.
+    var config = new TalonSRXConfiguration();
     
-    // 2. Cook the Leaders
-    configureLeader(m_leftLeader, leaderConfig, false);
-    configureLeader(m_rightLeader, leaderConfig, true);
+    // Voltage Compensation: Ensures the robot drives at the same speed whether the battery is at 12V or 10V.
+    config.voltageCompSaturation = DriveConstants.kVoltageComp;
+    
+    // Current Limiting: CIM motors are power hungry!
+    // We limit each motor to 30 Amps to prevent the main breaker from tripping (Brownout).
+    config.continuousCurrentLimit = 30;
+    config.peakCurrentLimit = 60;
+    config.peakCurrentDuration = 100; // 100ms
+    
+    // Ramp Rate: Takes 0.2 seconds to go from 0% to 100% power.
+    // This prevents the robot from jerking and damaging the gears or tipping over.
+    config.openloopRamp = 0.2; 
 
-    // Configure Followers
-    configureFollower(m_leftFollower1, m_leftLeader);
-    configureFollower(m_leftFollower2, m_leftLeader);
-    configureFollower(m_rightFollower1, m_rightLeader);
-    configureFollower(m_rightFollower2, m_rightLeader);
+    // Apply the settings to both sides
+    configureSide(m_leftLeader, m_leftFollowers, config, false);
+    configureSide(m_rightLeader, m_rightFollowers, config, true); // Right side is usually inverted
   }
 
-  private void configureLeader(WPI_TalonSRX leader, TalonSRXConfiguration config, boolean inverted) {
+  /**
+   * Helper method to configure a "Leader" motor and all its "Followers".
+   * This keeps our code DRY (Don't Repeat Yourself).
+   */
+  private void configureSide(WPI_TalonSRX leader, List<WPI_TalonSRX> followers, TalonSRXConfiguration config, boolean inverted) {
+    // 1. Configure the Leader
     leader.configAllSettings(config);
-    leader.setNeutralMode(NeutralMode.Brake);
+    leader.setNeutralMode(NeutralMode.Brake); // Brake mode makes the robot stop quickly when you let go of the stick
     leader.enableVoltageCompensation(true);
+    leader.enableCurrentLimit(true); // Enable the current limit we configured
     leader.setInverted(inverted);
     
-    // Current Limiting (Prevent Brownouts)
-    // 40A continuous, 60A peak for 100ms
-    leader.configSupplyCurrentLimit(new SupplyCurrentLimitConfiguration(true, 40, 60, 0.1));
+    // 2. Configure the Followers
+    for (var follower : followers) {
+      follower.configFactoryDefault(); // Reset to factory defaults to remove any old settings
+      follower.follow(leader); // IMPORTANT: This tells the motor to do exactly what the leader does
+      follower.setInverted(InvertType.FollowMaster); // Follow the leader's direction
+      follower.setNeutralMode(NeutralMode.Brake);
+      follower.enableVoltageCompensation(true);
+      follower.configVoltageCompSaturation(DriveConstants.kVoltageComp);
+    }
   }
 
-  private void configureFollower(WPI_TalonSRX follower, WPI_TalonSRX leader) {
-    follower.configFactoryDefault();
-    follower.follow(leader);
-    follower.setInverted(InvertType.FollowMaster);
-    follower.setNeutralMode(NeutralMode.Brake);
-    follower.configVoltageCompSaturation(DriveConstants.kVoltageComp);
-    follower.enableVoltageCompensation(true);
-  }
+  // --- Drive Methods ---
 
-  /**
-   * Drives the robot using arcade controls.
-   *
-   * @param fwd the commanded forward movement
-   * @param rot the commanded rotation
+  /** Arcade Drive: One stick for speed (fwd), one for turn (rot). Standard for most games. */
+  public void arcadeDrive(double fwd, double rot) { m_drive.arcadeDrive(fwd, rot); }
+
+  /** Tank Drive: Left stick controls left wheels, Right stick controls right wheels. */
+  public void tankDrive(double left, double right) { m_drive.tankDrive(left, right); }
+
+  /** 
+   * Curvature Drive: A more advanced drive mode.
+   * It handles "turning while moving" differently than "turning in place".
+   * It feels much smoother at high speeds.
    */
-  public void arcadeDrive(double fwd, double rot) {
-    m_drive.arcadeDrive(fwd, rot);
-  }
+  public void curvatureDrive(double fwd, double rot, boolean turnInPlace) { m_drive.curvatureDrive(fwd, rot, turnInPlace); }
 
-  /**
-   * Drives the robot using tank controls.
-   *
-   * @param left the commanded left side movement
-   * @param right the commanded right side movement
+  /** Limits the maximum speed of the robot (0.0 to 1.0). Useful for "Slow Mode". */
+  public void setMaxOutput(double maxOutput) { m_drive.setMaxOutput(maxOutput); }
+
+  /** 
+   * Simple Auto Command: Drives at a set speed for a set time.
+   * Since we don't have encoders, this is the best we can do for autonomous.
+   * Example: driveTime(0.5, 2.0) drives at 50% speed for 2 seconds.
    */
-  public void tankDrive(double left, double right) {
-    m_drive.tankDrive(left, right);
-  }
-
-  /**
-   * Drives the robot using curvature controls.
-   *
-   * @param fwd the commanded forward movement
-   * @param rot the commanded rotation
-   * @param allowTurnInPlace whether to allow turning in place
-   */
-  public void curvatureDrive(double fwd, double rot, boolean allowTurnInPlace) {
-    m_drive.curvatureDrive(fwd, rot, allowTurnInPlace);
-  }
-
-  /**
-   * Attempts to follow the given drive states using offboard PID.
-   *
-   * @param currentLeft The current left wheel state.
-   * @param currentRight The current right wheel state.
-   * @param nextLeft The next left wheel state.
-   * @param nextRight The next right wheel state.
-   */
-  public void setDriveStates(
-      TrapezoidProfile.State currentLeft,
-      TrapezoidProfile.State currentRight,
-      TrapezoidProfile.State nextLeft,
-      TrapezoidProfile.State nextRight) {
-    // Feedforward is divided by battery voltage to normalize it to [-1, 1]
-    m_leftLeader.set(
-        ControlMode.Position,
-        currentLeft.position / DriveConstants.kEncoderDistancePerPulse,
-        DemandType.ArbitraryFeedForward,
-        m_feedforward.calculateWithVelocities(currentLeft.velocity, nextLeft.velocity)
-            / DriveConstants.kVoltageComp);
-    m_rightLeader.set(
-        ControlMode.Position,
-        currentRight.position / DriveConstants.kEncoderDistancePerPulse,
-        DemandType.ArbitraryFeedForward,
-        m_feedforward.calculateWithVelocities(currentLeft.velocity, nextLeft.velocity)
-            / DriveConstants.kVoltageComp);
-  }
-
-  /**
-   * Returns the left encoder distance.
-   *
-   * @return the left encoder distance
-   */
-  public double getLeftEncoderDistance() {
-    return m_leftLeader.getSelectedSensorPosition() * DriveConstants.kEncoderDistancePerPulse;
-  }
-
-  /**
-   * Returns the right encoder distance.
-   *
-   * @return the right encoder distance
-   */
-  public double getRightEncoderDistance() {
-    return m_rightLeader.getSelectedSensorPosition() * DriveConstants.kEncoderDistancePerPulse;
-  }
-
-  /** Resets the drive encoders. */
-  public void resetEncoders() {
-    m_leftLeader.setSelectedSensorPosition(0);
-    m_rightLeader.setSelectedSensorPosition(0);
-  }
-
-  /**
-   * Sets the max output of the drive. Useful for scaling the drive to drive more slowly.
-   *
-   * @param maxOutput the maximum output to which the drive will be constrained
-   */
-  public void setMaxOutput(double maxOutput) {
-    m_drive.setMaxOutput(maxOutput);
-  }
-
-  /**
-   * Creates a command to drive forward a specified distance using a motion profile.
-   *
-   * @param distance The distance to drive forward.
-   * @return A command.
-   */
-  public Command profiledDriveDistance(double distance) {
-    return startRun(
-            () -> {
-              // Restart timer so profile setpoints start at the beginning
-              m_timer.restart();
-              resetEncoders();
-            },
-            () -> {
-              // Current state never changes, so we need to use a timer to get the setpoints we need
-              // to be at
-              var currentTime = m_timer.get();
-              var currentSetpoint =
-                  m_profile.calculate(currentTime, new State(), new State(distance, 0));
-              var nextSetpoint =
-                  m_profile.calculate(
-                      currentTime + DriveConstants.kDt, new State(), new State(distance, 0));
-              setDriveStates(currentSetpoint, currentSetpoint, nextSetpoint, nextSetpoint);
-            })
-        .until(() -> m_profile.isFinished(0));
-  }
-
-  private double m_initialLeftDistance;
-  private double m_initialRightDistance;
-
-  /**
-   * Creates a command to drive forward a specified distance using a motion profile without
-   * resetting the encoders.
-   *
-   * @param distance The distance to drive forward.
-   * @return A command.
-   */
-  public Command dynamicProfiledDriveDistance(double distance) {
-    return startRun(
-            () -> {
-              // Restart timer so profile setpoints start at the beginning
-              m_timer.restart();
-              // Store distance so we know the target distance for each encoder
-              m_initialLeftDistance = getLeftEncoderDistance();
-              m_initialRightDistance = getRightEncoderDistance();
-            },
-            () -> {
-              // Current state never changes for the duration of the command, so we need to use a
-              // timer to get the setpoints we need to be at
-              var currentTime = m_timer.get();
-              var currentLeftSetpoint =
-                  m_profile.calculate(
-                      currentTime,
-                      new State(m_initialLeftDistance, 0),
-                      new State(m_initialLeftDistance + distance, 0));
-              var currentRightSetpoint =
-                  m_profile.calculate(
-                      currentTime,
-                      new State(m_initialRightDistance, 0),
-                      new State(m_initialRightDistance + distance, 0));
-              var nextLeftSetpoint =
-                  m_profile.calculate(
-                      currentTime + DriveConstants.kDt,
-                      new State(m_initialLeftDistance, 0),
-                      new State(m_initialLeftDistance + distance, 0));
-              var nextRightSetpoint =
-                  m_profile.calculate(
-                      currentTime + DriveConstants.kDt,
-                      new State(m_initialRightDistance, 0),
-                      new State(m_initialRightDistance + distance, 0));
-              setDriveStates(
-                  currentLeftSetpoint, currentRightSetpoint, nextLeftSetpoint, nextRightSetpoint);
-            })
-        .until(() -> m_profile.isFinished(0));
+  public Command driveTime(double speed, double seconds) {
+    return run(() -> m_drive.arcadeDrive(speed, 0))
+        .withTimeout(seconds)
+        .andThen(() -> m_drive.stopMotor()); // Safety: Stop the motors when time is up!
   }
 }

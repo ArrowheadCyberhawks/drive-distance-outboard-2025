@@ -14,7 +14,6 @@ package frc.robot;
  */
 public final class Constants {
   public static final class DriveConstants {
-    public static final double kDt = 0.02;
     public static final int kLeftMotor1Port = 7;
     public static final int kLeftMotor2Port = 6;
     public static final int kLeftMotor3Port = 2;
@@ -22,25 +21,7 @@ public final class Constants {
     public static final int kRightMotor2Port = 10;
     public static final int kRightMotor3Port = 11;
 
-    public static final int kEncoderCPR = 4096;
-    public static final double kWheelDiameterMeters = 0.1524; // 6 inches
-    public static final double kEncoderDistancePerPulse =
-        (kWheelDiameterMeters * Math.PI) / (double) kEncoderCPR;
-
     public static final double kVoltageComp = 12.0;
-
-    // These are example values only - DO NOT USE THESE FOR YOUR OWN ROBOT!
-    // These characterization values MUST be determined either experimentally or theoretically
-    // for *your* robot's drive.
-    // The SysId tool provides a convenient method for obtaining these values for your robot.
-    public static final double ksVolts = 1;
-    public static final double kvVoltSecondsPerMeter = 0.8;
-    public static final double kaVoltSecondsSquaredPerMeter = 0.15;
-
-    public static final double kp = 1;
-
-    public static final double kMaxSpeedMetersPerSecond = 3;
-    public static final double kMaxAccelerationMetersPerSecondSquared = 3;
   }
 
   public static final class OIConstants {

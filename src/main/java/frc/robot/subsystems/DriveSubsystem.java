@@ -85,6 +85,8 @@ public class DriveSubsystem extends SubsystemBase {
   /** Arcade Drive: One stick for speed (fwd), one for turn (rot). Standard for most games. */
   public void arcadeDrive(double fwd, double rot) { m_drive.arcadeDrive(fwd, rot); }
 
+  public void stopMotor() { m_drive.stopMotor(); }
+
   /** Tank Drive: Left stick controls left wheels, Right stick controls right wheels. */
   public void tankDrive(double left, double right) { m_drive.tankDrive(left, right); }
 

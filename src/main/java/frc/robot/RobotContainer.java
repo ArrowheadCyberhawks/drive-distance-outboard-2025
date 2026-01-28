@@ -61,10 +61,10 @@ public class RobotContainer {
                 () -> m_robotDrive.setMaxOutput(0.5), () -> m_robotDrive.setMaxOutput(1)));
 
     // Drive forward at 50% speed for 2 seconds when the 'A' button is pressed
-    m_driverController.a().onTrue(m_robotDrive.driveTime(0.5, 2.0));
+    m_driverController.a().onTrue(m_robotDrive.driveTime(0.5, 2.0, 0));
 
     // Drive backward at 50% speed for 2 seconds when the 'B' button is pressed
-    m_driverController.b().onTrue(m_robotDrive.driveTime(-0.5, 2.0));
+    m_driverController.b().onTrue(m_robotDrive.driveTime(-0.5, 2.0, 0));
   }
 
   /**

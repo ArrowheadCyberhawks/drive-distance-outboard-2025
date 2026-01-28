@@ -105,8 +105,8 @@ public class DriveSubsystem extends SubsystemBase {
    * Since we don't have encoders, this is the best we can do for autonomous.
    * Example: driveTime(0.5, 2.0) drives at 50% speed for 2 seconds.
    */
-  public Command driveTime(double speed, double seconds) {
-    return run(() -> m_drive.arcadeDrive(speed, 0))
+  public Command driveTime(double speed, double seconds, double Rotation) {
+    return run(() -> m_drive.arcadeDrive(speed, Rotation))
         .withTimeout(seconds)
         .andThen(() -> m_drive.stopMotor()); // Safety: Stop the motors when time is up!
   }

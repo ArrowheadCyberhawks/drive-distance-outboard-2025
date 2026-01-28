@@ -5,7 +5,7 @@
 package frc.robot;
 
 import edu.wpi.first.wpilibj.TimedRobot;
-import edu.wpi.first.wpilibj.Timer;
+//import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 // import frc.robot.subsystems.DriveSubsystem;
@@ -59,7 +59,17 @@ public class Robot extends TimedRobot {
   public void autonomousInit() {
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
     System.out.println("Autonomous mode initialized \n\n\n\n!!!!!!");
-    //m_robotContainer.m_robotDrive.driveTime(0.5, 0.5).schedule();
+    m_robotContainer.m_robotDrive.driveTime(0.5, 0.5, 5).schedule();
+  /*
+     if (Timer.getFPGATimestamp() < 1.0) {
+      
+      m_robotContainer.m_robotDrive.arcadeDrive(0.1,0); //.schedule();
+      System.out.println("SPEED SET!!!");
+
+    } else {
+        m_robotContainer.m_robotDrive.stopMotor(); //.schedule();
+    }
+  */
 
 
     // schedule the autonomous command (example)
@@ -68,19 +78,10 @@ public class Robot extends TimedRobot {
     }
   }
 
-  /** This function is called periodically during autonomous. */
+  /** This function is called periodically during autonomous(every 20ms). */
 @Override
 public void autonomousPeriodic() {
-    // Code to execute periodically during autonomous mode
-    // Example: Drive forward for 2 seconds
-    if (Timer.getFPGATimestamp() < 1.0) {
-      
-      m_robotContainer.m_robotDrive.arcadeDrive(0.1,0); //.schedule();
-      System.out.println("SPEED SET!!!");
 
-    } else {
-        m_robotContainer.m_robotDrive.stopMotor(); //.schedule();
-    }
 }
 
   @Override

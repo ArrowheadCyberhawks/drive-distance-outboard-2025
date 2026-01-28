@@ -110,4 +110,11 @@ public class DriveSubsystem extends SubsystemBase {
         .withTimeout(seconds)
         .andThen(() -> m_drive.stopMotor()); // Safety: Stop the motors when time is up!
   }
+  //Simple command allowing control over both motors
+  public Command driveRotation(double leftSpeed, double seconds, double rightSpeed) {
+    return run(() -> m_drive.tankDrive(leftSpeed, rightSpeed))
+        .withTimeout(seconds)
+        .andThen(() -> m_drive.stopMotor()); // Safety: Stop the motors when time is up! 
+    
+  }
 }

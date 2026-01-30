@@ -59,12 +59,11 @@ public class Robot extends TimedRobot {
   public void autonomousInit() {
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
     System.out.println("Autonomous mode initialized \n\n\n\n!!!!!!");
-    m_robotContainer.m_robotDrive.driveTime(0.6, 0.5, 0).schedule();
-   //m_robotContainer.m_robotDrive.driveRotation(0.6, 0.5, 0.6).schedule();
+    m_robotContainer.m_robotDrive.driveTime(0.5, 0.5, 5).schedule();
   /*
      if (Timer.getFPGATimestamp() < 1.0) {
       
-      m_robotContainer.m_robotDrive.arcadeDrive(0.1,0); //.schedulle();
+      m_robotContainer.m_robotDrive.arcadeDrive(0.1,0); //.schedule();
       System.out.println("SPEED SET!!!");
 
     } else {

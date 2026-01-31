@@ -4,14 +4,17 @@
 
 package frc.robot;
 
+import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.wpilibj.XboxController;
-import frc.robot.Constants.OIConstants;
 import frc.robot.subsystems.DriveSubsystem;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-
+import frc.robot.Constants.*;
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
  * "declarative" paradigm, very little robot logic should actually be handled in the {@link Robot}
@@ -25,6 +28,8 @@ public class RobotContainer {
   // The driver's controller
   private final CommandXboxController m_driverController =
       new CommandXboxController(OIConstants.kDriverControllerPort);
+
+  private final SparkMax testMotor = new SparkMax(DriveConstants.kTestMotorPort, MotorType.kBrushless);
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
@@ -61,7 +66,7 @@ public class RobotContainer {
                 () -> m_robotDrive.setMaxOutput(0.5), () -> m_robotDrive.setMaxOutput(1)));
 
     // Drive forward at 50% speed for 2 seconds when the 'A' button is pressed
-    m_driverController.a().onTrue(m_robotDrive.driveTime(0.5, 2.0, 0));
+    m_driverController.a().onTrue(m_robotDrive.driveTime(0.5, 2, 0));
 
     // Drive backward at 50% speed for 2 seconds when the 'B' button is pressed
     m_driverController.b().onTrue(m_robotDrive.driveTime(-0.5, 2.0, 0));
@@ -73,6 +78,13 @@ public class RobotContainer {
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
-    return Commands.none();
+    return new SequentialCommandGroup(
+    m_robotDrive.driveRotation(0.2, 1.5, 0.2, false),
+    m_robotDrive.driveRotation(0.4, 1, 0.133, false),
+    m_robotDrive.driveRotation(0.133, 1.35, 0.4, false),
+    m_robotDrive.driveRotation(0.2, 3,0.2, false)
+    );
+    /*m_robotContainer.m_robotDrive.driveRotation(0.133, 5, 0.283, false).schedule(); 
+    These values run a radius turn of around 7ft diameter*/
   }
 }

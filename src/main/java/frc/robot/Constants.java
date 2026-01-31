@@ -20,7 +20,7 @@ public final class Constants {
     public static final int kRightMotor1Port = 9;
     public static final int kRightMotor2Port = 10;
     public static final int kRightMotor3Port = 11;
-
+    public static final int kTestMotorPort = 12;
     public static final double kVoltageComp = 12.0;
   }
 

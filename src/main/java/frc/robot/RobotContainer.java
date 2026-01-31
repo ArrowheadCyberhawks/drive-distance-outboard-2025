@@ -3,10 +3,6 @@
 // the WPILib BSD license file in the root directory of this project.
 
 package frc.robot;
-
-import com.revrobotics.spark.SparkMax;
-import com.revrobotics.spark.SparkLowLevel.MotorType;
-
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.wpilibj.XboxController;
 import frc.robot.subsystems.DriveSubsystem;
@@ -28,8 +24,6 @@ public class RobotContainer {
   // The driver's controller
   private final CommandXboxController m_driverController =
       new CommandXboxController(OIConstants.kDriverControllerPort);
-
-  private final SparkMax testMotor = new SparkMax(DriveConstants.kTestMotorPort, MotorType.kBrushless);
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
@@ -63,15 +57,15 @@ public class RobotContainer {
         .leftBumper()
         .whileTrue(
             Commands.startEnd(
-                () -> m_robotDrive.setMaxOutput(0.5), () -> m_robotDrive.setMaxOutput(1)));
-
-    // Drive forward at 50% speed for 2 seconds when the 'A' button is pressed
-    m_driverController.a().onTrue(m_robotDrive.driveTime(0.5, 2, 0));
-
+                () -> m_robotDrive.setMaxOutput(0.5), () -> m_robotDrive.setMaxOutput(1)));    
+                
+    //move neo motor at 50% speed when a button pressed
+    m_driverController.a().whileTrue(m_robotDrive.neomotorCommand(0.5));
     // Drive backward at 50% speed for 2 seconds when the 'B' button is pressed
-    m_driverController.b().onTrue(m_robotDrive.driveTime(-0.5, 2.0, 0));
-  }
+    m_driverController.b().whileFalse(m_robotDrive.neomotorCommand(0));
 
+    m_driverController.y().onTrue(m_robotDrive.rotateinplace(0.2, 0, 1,true));
+  }
   /**
    * Use this to pass the autonomous command to the main {@link Robot} class.
    *

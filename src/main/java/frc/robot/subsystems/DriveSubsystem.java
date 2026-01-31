@@ -3,11 +3,15 @@ package frc.robot.subsystems;
 import com.ctre.phoenix.motorcontrol.*;
 import com.ctre.phoenix.motorcontrol.can.TalonSRXConfiguration;
 import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.SparkMax;
+
 import edu.wpi.first.util.sendable.SendableRegistry;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.Constants.DriveConstants;
+
 import java.util.List;
 
 /**
@@ -115,8 +119,18 @@ public class DriveSubsystem extends SubsystemBase {
   public Command driveRotation(double leftSpeed, double seconds, double rightSpeed, boolean squareInputs) {
     return run(() -> m_drive.tankDrive(leftSpeed, rightSpeed, squareInputs))
         .withTimeout(seconds)
-        .andThen(() -> m_drive.stopMotor()); // Safety: Stop the motors when time is up! 
+        .andThen(() -> m_drive.stopMotor()); // Safety: Stop the motors when time is up!   
+  }
   
-  
+  private final SparkMax testMotor = new SparkMax(DriveConstants.kTestMotorPort, MotorType.kBrushless);
+  public Command neomotorCommand(double speed) {
+    return run(() -> testMotor.set(speed))
+        .andThen(() -> testMotor.stopMotor()); // Safety: Stop the motors when time is up!
+  }
+
+  public Command rotateinplace(double speed, double Rotation, double seconds, boolean allowTurnInPlace) {
+    return run(() -> m_drive.curvatureDrive(speed, Rotation, allowTurnInPlace))
+      .withTimeout(seconds)
+        .andThen(() -> m_drive.stopMotor()); // Safety: Stop the motors when time is up!
   }
 }
